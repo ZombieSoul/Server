@@ -12244,9 +12244,9 @@ void Client::Handle_OP_ShopPlayerBuy(const EQApplicationPacket *app)
 
 	int16 freeslotid = INVALID_INDEX;
 	int16 charges = 0;
-	//Items sold by vendors that have MaxCharges > 1 should be set to MaxCharges
+	//Items sold by merchants that have MaxCharges > 1 should be set to MaxCharges
 	//They should never be selling partial charges unless it is from temporary table
-	//mp-quantity was calculated above for stackables and temp table items
+	//mp-quantity was calculated above for stackables and temp table items but not for merchant stock
 	if (item->Stackable || (tmpmer_used && item->MaxCharges > 1))
 		charges = mp->quantity;
 	else
