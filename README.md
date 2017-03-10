@@ -1,3 +1,15 @@
+# ZombieSoul's CI
+|Travis CI (Linux)|Appveyor (Windows)   |
+|:---:|:---:| 
+|[![Build Status](https://travis-ci.org/ZombieSoul/Server.svg?branch=master)](https://travis-ci.org/ZombieSoul/Server)|[![Build status](https://ci.appveyor.com/api/projects/status/t94mxbex0t7k66bt/branch/master?svg=true)](https://ci.appveyor.com/project/ZombieSoul/server/branch/master)   | 
+
+## Bot Enabled Binaries (Windows)
+|EQEmu|ZombieSoul|
+|:---:|:---:|
+|[![Build status](https://ci.appveyor.com/api/projects/status/cmemu24qo4ebvoac/branch/master?svg=true)](https://ci.appveyor.com/api/projects/ZombieSoul/server-9dwjm/artifacts/build_x86_bots.zip)|[![Build status](https://ci.appveyor.com/api/projects/status/t94mxbex0t7k66bt/branch/master?svg=true)](https://ci.appveyor.com/api/projects/ZombieSoul/server/artifacts/build_x86_bots.zip)| 
+
+***
+
 # EQEmulator Core Server
 |Travis CI (Linux)|Appveyor (Windows)   |
 |:---:|:---:| 
