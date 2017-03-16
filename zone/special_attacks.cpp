@@ -94,6 +94,8 @@ int Mob::GetBaseSkillDamage(EQEmu::skills::SkillType skill, Mob *target)
 		}
 		if (inst)
 			ac_bonus = inst->GetItemArmorClass(true) / 25.0f;
+		else
+			return 0; // return 0 in cases where we don't have an item
 		if (ac_bonus > skill_bonus)
 			ac_bonus = skill_bonus;
 		return static_cast<int>(ac_bonus + skill_bonus);
@@ -142,7 +144,7 @@ void Mob::DoSpecialAttackDamage(Mob *who, EQEmu::skills::SkillType skill, int32 
 		return;
 
 	DamageHitInfo my_hit;
-	my_hit.damage_done = 0;
+	my_hit.damage_done = 1; // min 1 dmg
 	my_hit.base_damage = base_damage;
 	my_hit.min_damage = min_damage;
 	my_hit.skill = skill;
@@ -225,8 +227,23 @@ void Client::OPCombatAbility(const CombatAbility_Struct *ca_atk)
 	if (ClientVersion() >= EQEmu::versions::ClientVersion::RoF2 && ca_atk->m_skill == EQEmu::skills::SkillTigerClaw)
 		timer = pTimerCombatAbility2;
 
+
+	bool CanBypassSkillCheck = false;
+
+	if (ca_atk->m_skill == EQEmu::skills::SkillBash) { // SLAM - Bash without a shield equipped
+		switch (GetRace())
+		{
+		case OGRE:
+		case TROLL:
+		case BARBARIAN:
+			CanBypassSkillCheck = true;
+		default:
+			break;
+		}
+	}
+
 	/* Check to see if actually have skill */
-	if (!MaxSkill(static_cast<EQEmu::skills::SkillType>(ca_atk->m_skill)))
+	if (!MaxSkill(static_cast<EQEmu::skills::SkillType>(ca_atk->m_skill)) && !CanBypassSkillCheck)
 		return;
 
 	if (GetTarget()->GetID() != ca_atk->m_target)
@@ -832,7 +849,7 @@ void Mob::DoArcheryAttackDmg(Mob *other, const EQEmu::ItemInstance *RangeWeapon,
 		DamageHitInfo my_hit;
 		my_hit.base_damage = MaxDmg;
 		my_hit.min_damage = 0;
-		my_hit.damage_done = 0;
+		my_hit.damage_done = 1;
 
 		my_hit.skill = EQEmu::skills::SkillArchery;
 		my_hit.offense = offense(my_hit.skill);
@@ -1164,7 +1181,7 @@ void NPC::DoRangedAttackDmg(Mob* other, bool Launch, int16 damage_mod, int16 cha
 	DamageHitInfo my_hit;
 	my_hit.base_damage = MaxDmg;
 	my_hit.min_damage = MinDmg;
-	my_hit.damage_done = 0;
+	my_hit.damage_done = 1;
 
 	my_hit.skill = skill;
 	my_hit.offense = offense(my_hit.skill);
@@ -1345,7 +1362,7 @@ void Mob::DoThrowingAttackDmg(Mob *other, const EQEmu::ItemInstance *RangeWeapon
 		DamageHitInfo my_hit;
 		my_hit.base_damage = WDmg;
 		my_hit.min_damage = 0;
-		my_hit.damage_done = 0;
+		my_hit.damage_done = 1;
 
 		my_hit.skill = EQEmu::skills::SkillThrowing;
 		my_hit.offense = offense(my_hit.skill);
@@ -1776,8 +1793,8 @@ void Client::DoClassAttacks(Mob *ca_target, uint16 skill, bool IsRiposte)
 		}
 
 		while(AtkRounds > 0) {
-			if (GetTarget())
-				DoSpecialAttackDamage(GetTarget(), EQEmu::skills::SkillFrenzy, dmg, 0, dmg, ReuseTime);
+			if (ca_target!=this)
+				DoSpecialAttackDamage(ca_target, EQEmu::skills::SkillFrenzy, dmg, 0, dmg, ReuseTime);
 			AtkRounds--;
 		}
 
@@ -2102,7 +2119,7 @@ void Mob::DoMeleeSkillAttackDmg(Mob *other, uint16 weapon_damage, EQEmu::skills:
 		DamageHitInfo my_hit;
 		my_hit.base_damage = weapon_damage;
 		my_hit.min_damage = 0;
-		my_hit.damage_done = 0;
+		my_hit.damage_done = 1;
 
 		my_hit.skill = skillinuse;
 		my_hit.offense = offense(my_hit.skill);
