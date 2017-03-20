@@ -2224,12 +2224,23 @@ void EntityList::RemoveAllObjects()
 	}
 }
 
-void EntityList::RemoveAllTraps(){
+void EntityList::RemoveAllTraps()
+{
 	auto it = trap_list.begin();
 	while (it != trap_list.end()) {
 		safe_delete(it->second);
 		free_ids.push(it->first);
 		it = trap_list.erase(it);
+	}
+}
+
+void EntityList::RemoveAllEncounters()
+{
+	auto it = encounter_list.begin();
+	while (it != encounter_list.end()) {
+		safe_delete(it->second);
+		free_ids.push(it->first);
+		it = encounter_list.erase(it);
 	}
 }
 
