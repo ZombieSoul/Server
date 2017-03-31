@@ -345,7 +345,7 @@ RULE_INT(Spells, MaxDiscSlotsNPC, 0)	// NPCs don't have discs ...
 RULE_INT(Spells, MaxTotalSlotsNPC, 60)	// default to Tit's limit
 RULE_INT(Spells, MaxTotalSlotsPET, 30)	// default to Tit's limit
 RULE_BOOL (Spells, EnableBlockedBuffs, true)
-RULE_INT(Spells, ReflectType, 1) //0 = disabled, 1 = single target player spells only, 2 = all player spells, 3 = all single target spells, 4 = all spells
+RULE_INT(Spells, ReflectType, 3) //0 = disabled, 1 = single target player spells only, 2 = all player spells, 3 = all single target spells, 4 = all spells
 RULE_INT(Spells, VirusSpreadDistance, 30) // The distance a viral spell will jump to its next victim
 RULE_BOOL(Spells, LiveLikeFocusEffects, true) // Determines whether specific healing, dmg and mana reduction focuses are randomized
 RULE_INT(Spells, BaseImmunityLevel, 55) // The level that targets start to be immune to stun, fear and mez spells with a max level of 0.
@@ -536,6 +536,7 @@ RULE_INT(Aggro, MaxScalingProcAggro, 400) // Set to -1 for no limit. Maxmimum am
 RULE_INT(Aggro, IntAggroThreshold, 75) // Int <= this will aggro regardless of level difference.
 RULE_BOOL(Aggro, AllowTickPulling, false) // tick pulling is an exploit in an NPC's call for help fixed sometime in 2006 on live
 RULE_BOOL(Aggro, UseLevelAggro, true) // Level 18+ and Undead will aggro regardless of level difference. (this will disabled Rule:IntAggroThreshold if set to true)
+RULE_INT(Aggro, ClientAggroCheckInterval, 6) // Interval in which clients actually check for aggro - in seconds
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(TaskSystem)
@@ -558,6 +559,7 @@ RULE_INT(Range, SpellMessages, 75)
 RULE_INT(Range, SongMessages, 75)
 RULE_INT(Range, MobPositionUpdates, 600)
 RULE_INT(Range, CriticalDamage, 80)
+RULE_INT(Range, ClientNPCScan, 300)
 RULE_CATEGORY_END()
 
 

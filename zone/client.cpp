@@ -133,9 +133,9 @@ Client::Client(EQStreamInterface* ieqs)
 	fishing_timer(8000),
 	endupkeep_timer(1000),
 	forget_timer(0),
-	autosave_timer(RuleI(Character, AutosaveIntervalS)*1000),
+	autosave_timer(RuleI(Character, AutosaveIntervalS) * 1000),
 #ifdef REVERSE_AGGRO
-	scanarea_timer(AIClientScanarea_delay),
+	client_scan_npc_aggro_timer(RuleI(Aggro, ClientAggroCheckInterval) * 1000),
 #endif
 	tribute_timer(Tribute_duration),
 	proximity_timer(ClientProximity_interval),
@@ -153,14 +153,14 @@ Client::Client(EQStreamInterface* ieqs)
 	anon_toggle_timer(250),
 	afk_toggle_timer(250),
 	helm_toggle_timer(250),
-	light_update_timer(600),
 	aggro_meter_timer(AGGRO_METER_UPDATE_MS),
 	m_Proximity(FLT_MAX, FLT_MAX, FLT_MAX), //arbitrary large number
 	m_ZoneSummonLocation(-2.0f,-2.0f,-2.0f),
 	m_AutoAttackPosition(0.0f, 0.0f, 0.0f, 0.0f),
 	m_AutoAttackTargetLocation(0.0f, 0.0f, 0.0f),
 	last_region_type(RegionTypeUnsupported),
-	m_dirtyautohaters(false)
+	m_dirtyautohaters(false),
+	npc_close_scan_timer(6000)
 {
 	for(int cf=0; cf < _FilterCount; cf++)
 		ClientFilters[cf] = FilterShow;
@@ -176,6 +176,7 @@ Client::Client(EQStreamInterface* ieqs)
 	client_state = CLIENT_CONNECTING;
 	Trader=false;
 	Buyer = false;
+	Haste = 0;
 	CustomerID = 0;
 	TraderID = 0;
 	TrackingID = 0;
@@ -357,6 +358,8 @@ Client::~Client() {
 		m_tradeskill_object->Close();
 		m_tradeskill_object = nullptr;
 	}
+
+	close_npcs.clear();
 
 	if(IsDueling() && GetDuelTarget() != 0) {
 		Entity* entity = entity_list.GetID(GetDuelTarget());
@@ -717,7 +720,7 @@ bool Client::AddPacket(EQApplicationPacket** pApp, bool bAckreq) {
 
 	c->ack_req = bAckreq;
 	c->app = *pApp;
-	*pApp = 0;
+	*pApp = nullptr;
 
 	clientpackets.Append(c);
 	return true;
@@ -726,7 +729,7 @@ bool Client::AddPacket(EQApplicationPacket** pApp, bool bAckreq) {
 bool Client::SendAllPackets() {
 	LinkedListIterator<CLIENTPACKET*> iterator(clientpackets);
 
-	CLIENTPACKET* cp = 0;
+	CLIENTPACKET* cp = nullptr;
 	iterator.Reset();
 	while(iterator.MoreElements()) {
 		cp = iterator.GetData();
@@ -772,7 +775,7 @@ void Client::FastQueuePacket(EQApplicationPacket** app, bool ack_req, CLIENT_CON
 			eqs->FastQueuePacket((EQApplicationPacket **)app, ack_req);
 		else if (app && (*app))
 			delete *app;
-		*app = 0;
+		*app = nullptr;
 	}
 	return;
 }
@@ -2038,7 +2041,7 @@ void Client::ReadBook(BookRequest_Struct *book) {
 				read_from_slot = book->invslot -1;
 			}
 
-			const EQEmu::ItemInstance *inst = 0;
+			const EQEmu::ItemInstance *inst = nullptr;
 
 			if (read_from_slot <= EQEmu::legacy::SLOT_PERSONAL_BAGS_END)
 				{
@@ -4046,7 +4049,7 @@ bool Client::KeyRingCheck(uint32 item_id)
 void Client::KeyRingList()
 {
 	Message(4,"Keys on Keyring:");
-	const EQEmu::ItemData *item = 0;
+	const EQEmu::ItemData *item = nullptr;
 	for (auto iter = keyring.begin(); iter != keyring.end(); ++iter) {
 		if ((item = database.GetItem(*iter))!=nullptr) {
 			Message(4,item->Name);
@@ -4659,7 +4662,7 @@ void Client::SendRespawnBinds()
 	uint32 PacketLength = 17 + (26 * num_options); //Header size + per-option invariant size
 
 	std::list<RespawnOption>::iterator itr;
-	RespawnOption* opt;
+	RespawnOption* opt = nullptr;
 
 	//Find string size for each option
 	for (itr = respawn_options.begin(); itr != respawn_options.end(); ++itr)
@@ -6353,7 +6356,7 @@ void Client::Doppelganger(uint16 spell_id, Mob *target, const char *name_overrid
 		return;
 	}
 
-	AA_SwarmPet pet;
+	SwarmPet_Struct pet;
 	pet.count = pet_count;
 	pet.duration = pet_duration;
 	pet.npc_id = record.npc_type;
@@ -6428,33 +6431,35 @@ void Client::Doppelganger(uint16 spell_id, Mob *target, const char *name_overrid
 			memcpy(npc_dup, made_npc, sizeof(NPCType));
 		}
 
-		NPC* npca = new NPC(
+		NPC* swarm_pet_npc = new NPC(
 				(npc_dup!=nullptr)?npc_dup:npc_type,	//make sure we give the NPC the correct data pointer
 				0,
 				GetPosition() + glm::vec4(swarmPetLocations[summon_count], 0.0f, 0.0f),
 				FlyMode3);
 
-		if(!npca->GetSwarmInfo()){
-			auto nSI = new AA_SwarmPetInfo;
-			npca->SetSwarmInfo(nSI);
-			npca->GetSwarmInfo()->duration = new Timer(pet_duration*1000);
+		if(!swarm_pet_npc->GetSwarmInfo()){
+			auto nSI = new SwarmPet;
+			swarm_pet_npc->SetSwarmInfo(nSI);
+			swarm_pet_npc->GetSwarmInfo()->duration = new Timer(pet_duration*1000);
 		}
 		else{
-			npca->GetSwarmInfo()->duration->Start(pet_duration*1000);
+			swarm_pet_npc->GetSwarmInfo()->duration->Start(pet_duration*1000);
 		}
 
-		npca->GetSwarmInfo()->owner_id = GetID();
+		swarm_pet_npc->StartSwarmTimer(pet_duration * 1000);
+
+		swarm_pet_npc->GetSwarmInfo()->owner_id = GetID();
 
 		// Give the pets alittle more agro than the caster and then agro them on the target
-		target->AddToHateList(npca, (target->GetHateAmount(this) + 100), (target->GetDamageAmount(this) + 100));
-		npca->AddToHateList(target, 1000, 1000);
-		npca->GetSwarmInfo()->target = target->GetID();
+		target->AddToHateList(swarm_pet_npc, (target->GetHateAmount(this) + 100), (target->GetDamageAmount(this) + 100));
+		swarm_pet_npc->AddToHateList(target, 1000, 1000);
+		swarm_pet_npc->GetSwarmInfo()->target = target->GetID();
 
 		//we allocated a new NPC type object, give the NPC ownership of that memory
 		if(npc_dup != nullptr)
-			npca->GiveNPCTypeData(npc_dup);
+			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
-		entity_list.AddNPC(npca);
+		entity_list.AddNPC(swarm_pet_npc);
 		summon_count--;
 	}
 }
@@ -8385,7 +8390,7 @@ bool Client::RemoveRespawnOption(std::string option_name)
 	if (IsHoveringForRespawn() || respawn_options.empty()) { return false; }
 
 	bool had = false;
-	RespawnOption* opt;
+	RespawnOption* opt = nullptr;
 	std::list<RespawnOption>::iterator itr;
 	for (itr = respawn_options.begin(); itr != respawn_options.end(); ++itr)
 	{
@@ -8432,7 +8437,7 @@ bool Client::RemoveRespawnOption(uint8 position)
 
 void Client::SetHunger(int32 in_hunger)
 {
-	EQApplicationPacket *outapp;
+	EQApplicationPacket *outapp = nullptr;
 	outapp = new EQApplicationPacket(OP_Stamina, sizeof(Stamina_Struct));
 	Stamina_Struct* sta = (Stamina_Struct*)outapp->pBuffer;
 	sta->food = in_hunger;
@@ -8446,7 +8451,7 @@ void Client::SetHunger(int32 in_hunger)
 
 void Client::SetThirst(int32 in_thirst)
 {
-	EQApplicationPacket *outapp;
+	EQApplicationPacket *outapp = nullptr;
 	outapp = new EQApplicationPacket(OP_Stamina, sizeof(Stamina_Struct));
 	Stamina_Struct* sta = (Stamina_Struct*)outapp->pBuffer;
 	sta->food = m_pp.hunger_level > 6000 ? 6000 : m_pp.hunger_level;
@@ -8460,7 +8465,7 @@ void Client::SetThirst(int32 in_thirst)
 
 void Client::SetConsumption(int32 in_hunger, int32 in_thirst)
 {
-	EQApplicationPacket *outapp;
+	EQApplicationPacket *outapp = nullptr;
 	outapp = new EQApplicationPacket(OP_Stamina, sizeof(Stamina_Struct));
 	Stamina_Struct* sta = (Stamina_Struct*)outapp->pBuffer;
 	sta->food = in_hunger;
@@ -8655,9 +8660,6 @@ void Client::QuestReward(Mob* target, uint32 copper, uint32 silver, uint32 gold,
 }
 
 void Client::SendHPUpdateMarquee(){
-	if (!RuleB(Character, MarqueeHPUpdates))
-		return;
-
 	if (!this || !this->IsClient() || !this->cur_hp || !this->max_hp)
 		return;
 
